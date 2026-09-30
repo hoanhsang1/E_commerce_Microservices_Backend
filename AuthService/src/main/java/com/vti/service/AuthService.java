@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.vti.authen.JwtUtil;
+import com.vti.dto.AuthResponse;
+import com.vti.entity.RefreshToken;
 import com.vti.entity.User;
 import com.vti.form.AuthRequest;
 import com.vti.form.RegisterRequest;
@@ -20,22 +22,40 @@ public class AuthService implements IAuthService {
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private JwtUtil jwtUtil;
     @Autowired private RabbitMQSender rabbitMQSender;
+    @Autowired private IRefreshTokenService refreshTokenService;
 
     @Override
-    public String login(AuthRequest request) {
+    public AuthResponse login(AuthRequest request) {
         User user = userRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Account not found"));
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
-        return jwtUtil.generateToken(user.getUsername(), user.getRole().name(), user.getId());
+
+        // 1. Tạo Access Token (JWT) ngắn hạn
+        String accessToken = jwtUtil.generateToken(user.getUsername(), user.getRole().name(), user.getId());
+
+        // 2. Tạo Refresh Token dài hạn lưu vào DB
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
+
+        // 3. Trả về cả 2 token cho Client
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken.getToken())
+                .tokenType("Bearer")
+                .userId(user.getId())
+                .username(user.getUsername())
+                .role(user.getRole().name())
+                .build();
     }
 
     @Override
     public User register(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
-
+        }
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists");
         }
         User user = new User();
         user.setUsername(request.getUsername());

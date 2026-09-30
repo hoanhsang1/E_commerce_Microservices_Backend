@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.validation.Valid;
+
 import com.vti.client.dto.PaymentDto;
 import com.vti.form.PaymentForm;
 import com.vti.form.PaymentFormUpdate;
@@ -27,7 +29,12 @@ public class PaymentController {
     private IPaymentService paymentService;
 
     @PostMapping
-    public ResponseEntity<PaymentDto> create(@RequestBody PaymentForm form) {
+    public ResponseEntity<PaymentDto> create(
+            @RequestBody @Valid PaymentForm form,
+            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+        if (userId != null) {
+            form.setUserId(userId);
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(paymentService.createPayment(form));
     }
 
@@ -47,7 +54,7 @@ public class PaymentController {
     @PutMapping("/{id}/status")
     public ResponseEntity<PaymentDto> updateStatus(
         @PathVariable Long id, 
-        @RequestBody PaymentFormUpdate form,
+        @RequestBody @Valid PaymentFormUpdate form,
         @RequestHeader (value = "X-User-Role", required = false) String userRole) {
         return ResponseEntity.ok(paymentService.updatePaymentStatus(id, form, userRole));
     }

@@ -2,3 +2,7 @@
 RabbitMQServer/data/
 *.jar
 hs_err_pid*.log
+db.sql
+1README.md
+HUONG_DAN_THUYET_TRINH_VA_DEMO_POSTMAN.md
+start-all.bat

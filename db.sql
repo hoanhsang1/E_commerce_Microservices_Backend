@@ -3,7 +3,6 @@ CHARACTER SET utf8mb4
 COLLATE utf8mb4_unicode_ci;
 
 USE user_db;
-SELECT * FROM users;
 CREATE TABLE users (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
@@ -12,16 +11,30 @@ CREATE TABLE users (
     full_name VARCHAR(100),
     phone VARCHAR(20),
     status ENUM('ACTIVE', 'INACTIVE', 'BANNED') NOT NULL DEFAULT 'ACTIVE',
+    role VARCHAR(20) NOT NULL DEFAULT 'USER',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         ON UPDATE CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    token VARCHAR(512) NOT NULL UNIQUE,
+    user_id BIGINT UNSIGNED NOT NULL,
+    expiry_date TIMESTAMP NOT NULL,
+    revoked BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_refresh_tokens_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE
+);
+
 INSERT INTO users
-(username, email, password, full_name, phone)
+(username, email, password, full_name, phone, role)
 VALUES
-('sang', 'sang@gmail.com', '123456', 'Ho Anh Sang', '0900000001'),
-('nguyenan', 'an@gmail.com', '123456', 'Nguyen Van An', '0900000002');
+('sang', 'sang@gmail.com', '123456', 'Ho Anh Sang', '0900000001', 'ADMIN'),
+('nguyenan', 'an@gmail.com', '123456', 'Nguyen Van An', '0900000002', 'USER');
 
 CREATE DATABASE IF NOT EXISTS product_db
 CHARACTER SET utf8mb4

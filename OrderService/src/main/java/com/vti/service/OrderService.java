@@ -3,8 +3,9 @@ package com.vti.service;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,8 @@ import com.vti.repository.IOrderRepository;
 
 @Service
 public class OrderService implements IOrderService {
+
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
     @Autowired
     private IOrderRepository orderRepository;
@@ -105,8 +108,7 @@ public class OrderService implements IOrderService {
                     productGateway.adjustQuantity(done.getProductId(), done.getQuantity());
                 } catch (Exception compensateError) {
                     // không throw tiếp — log lại để xử lý thủ công, tránh nuốt mất lỗi gốc
-                    System.err.println("Hoàn kho thất bại cho productId=" + done.getProductId()
-                            + ": " + compensateError.getMessage());
+                    log.error("Hoàn kho thất bại cho productId={}: {}", done.getProductId(), compensateError.getMessage(), compensateError);
                 }
             }
             throw e;
@@ -140,12 +142,12 @@ public class OrderService implements IOrderService {
     }
 
     @Override
-    public OrderDto updateOrderStatus(Long id, OrderStatus status, Long currentUserId, String currentUserRole, boolean internalCall) {
+    public OrderDto updateOrderStatus(Long id, OrderStatus status, String currentUserRole, boolean internalCall) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng id=" + id));
         if (!internalCall) {
             boolean isAdmin = "ADMIN".equals(currentUserRole);
-            if (!isAdmin &&) {
+            if (!isAdmin) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền cập nhật trạng thái đơn hàng này");
             }
         }

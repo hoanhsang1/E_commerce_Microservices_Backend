@@ -2,6 +2,9 @@ package com.vti.authen;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.http.HttpHeaders;
@@ -12,11 +15,19 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.nio.charset.StandardCharsets;
+
 @Component
 public class JwtAuthenticationFilter implements GlobalFilter {
 
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+
     @org.springframework.beans.factory.annotation.Value("${jwt.secret}")
-     private String SECRET_KEY;
+    private String SECRET_KEY;
+
+    /** Key bí mật dùng để nhận dạng request đến từ hệ thống nội bộ (Gateway hoặc Feign) */
+    @org.springframework.beans.factory.annotation.Value("${internal.api.key}")
+    private String INTERNAL_API_KEY;
 
     @Override
     public Mono<Void> filter(
@@ -27,9 +38,10 @@ public class JwtAuthenticationFilter implements GlobalFilter {
 
         String path = request.getURI().getPath();
 
-        // Không kiểm tra JWT khi login/register
-        if (path.equals("/api/v1/auth/login")
-                || path.equals("/api/v1/auth/register")) {
+        // Không kiểm tra JWT khi login/register và OAuth2 endpoints
+        if (path.startsWith("/api/v1/auth/")
+                || path.startsWith("/oauth2/")
+                || path.startsWith("/login/oauth2/")) {
 
             return chain.filter(exchange);
         }
@@ -52,9 +64,10 @@ public class JwtAuthenticationFilter implements GlobalFilter {
 
         try {
 
-            // Kiểm tra JWT
-            Claims claims = Jwts.parser()
-                    .setSigningKey(SECRET_KEY)
+            // Kiểm tra JWT (dùng parserBuilder thay vì parser() deprecated)
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(Keys.hmacShaKeyFor(SECRET_KEY.getBytes(StandardCharsets.UTF_8)))
+                    .build()
                     .parseClaimsJws(token)
                     .getBody();
 
@@ -82,13 +95,16 @@ public class JwtAuthenticationFilter implements GlobalFilter {
                 );
             }
 
-            // Gắn thông tin user vào request
+            // Gắn thông tin user + "vé thông hành" nội bộ vào request
+            // X-Internal-Api-Key: chứng minh request này đến từ Gateway hợp lệ,
+            // giúp các service con phân biệt request từ Gateway vs kẻ tấn công gọi thẳng.
             ServerHttpRequest mutatedRequest = request.mutate()
                     .header("X-User-Name", username)
                     .header("X-User-Role", role != null ? role : "")
                     .header("X-User-Id", userId != null
                             ? String.valueOf(userId)
                             : "")
+                    .header("X-Internal-Api-Key", INTERNAL_API_KEY)
                     .build();
 
             // Tạo exchange mới
@@ -102,11 +118,7 @@ public class JwtAuthenticationFilter implements GlobalFilter {
 
         } catch (Exception e) {
 
-            // In lỗi thật ra console để dễ debug
-            System.err.println("===== JWT ERROR =====");
-            System.err.println("Message: " + e.getMessage());
-            e.printStackTrace();
-            System.err.println("=====================");
+            log.warn("JWT validation failed for path [{}]: {}", path, e.getMessage());
 
             return onError(
                     exchange,

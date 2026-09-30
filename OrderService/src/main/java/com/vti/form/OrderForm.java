@@ -9,7 +9,6 @@ import lombok.Setter;
 
 @Getter @Setter
 public class OrderForm {
-    @NotNull 
     private Long userId;
     private String shippingAddress;
     @NotEmpty(message = "Order must contain at least one item")
