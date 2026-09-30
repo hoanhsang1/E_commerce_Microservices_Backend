@@ -1,8 +1,12 @@
-.env
 RabbitMQServer/data/
 *.jar
 hs_err_pid*.log
-db.sql
 1README.md
 HUONG_DAN_THUYET_TRINH_VA_DEMO_POSTMAN.md
+.env
+.env.expmale
+
+docker-compose.yml
+db.sql
 start-all.bat
+hs_err_pid*.log
